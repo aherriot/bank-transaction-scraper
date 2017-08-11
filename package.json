@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "casperjs": "^1.1.3"
+  },
+  "name": "scraper",
+  "version": "1.0.0",
+  "description": "casperjs based scraper",
+  "main": "index.js",
+  "author": "Andrew Herriot",
+  "license": "MIT",
+  "scripts": {
+    "start": "casperjs index.js"
+  }
+}
