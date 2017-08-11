@@ -4,20 +4,43 @@ var fs = require('fs')
 var casper = require('casper')
 var config = require('./config')
 
+system.stdout.writeLine('Initializing...')
 casper = casper.create({
   verbose: false,
   logLevel: 'log'
 })
 
-// Download the transactions and save as JSON
-function downloadTransactions(account) {
-  system.stdout.writeLine('Downloading: "' + account.outputFile + '"')
+// generate filename for the given account name
+function generateName(name) {
+  var date = new Date()
+  var month = date.getMonth() + 1
+  // left pad the month
+  if (month < 10) {
+    month = '0' + month
+  }
+
+  var year = date.getFullYear()
+
+  return year + '-' + month + '-' + name + '.csv'
+}
+
+// Download the bank account transactions
+function downloadAccountTransactions(account) {
+  var fileName = generateName(account.name)
+  system.stdout.writeLine('Downloading: "' + fileName + '"')
+
   var url =
-    'https://easyweb.td.com/waw/api' +
-    '/account/creditcard/transactions?accountKey=' +
+    'https://easyweb.td.com/waw/ezw/servlet/' +
+    'ca.tdbank.banking.servlet.DownloadAccountActivityServlet'
+
+  var formData =
+    'selaccounts=' +
     account.id +
-    '&cycleId=1'
-  this.download(url, 'data/' + account.outputFile)
+    '&DateRange=L30&PFM=csv&xptype=PRXP&actiontaken=D' +
+    '&referer=AA&commingfrom=AA ' +
+    '&ExprtInfo=&filter=f1'
+
+  casper.download(url, 'data/' + fileName, 'POST', formData)
 }
 
 // First prompt for password
@@ -29,6 +52,9 @@ var password = system.stdin.readLine()
 // Probably not, but given the limited API provided
 // by CasperJS, I haven't found a better alternative:
 // See https://github.com/casperjs/casperjs/issues/1250
+// Remember, the PhantomJS environment does not include
+// most of the NodeJS APIs, so there are many options
+// that are not available to use.
 system.stdout.writeLine(
   '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n' +
     '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n'
@@ -62,7 +88,7 @@ casper.then(function() {
 casper.waitForSelector(
   'frame[name=tddetails]',
   function() {
-    system.stdout.writeLine('logged in')
+    system.stdout.writeLine('Logged in')
   },
   function() {
     system.stdout.writeLine('timeout :(')
@@ -76,13 +102,16 @@ casper.waitForSelector(
 // try to navigate to my credit card page before
 // attempting to download files
 casper.withFrame('tddetails', function() {
+  system.stdout.writeLine('Waiting for data to load...')
   this.click('div.td-target-creditcards tr:nth-child(4)  a')
 })
 
 // Actually download the transaction files
 casper.then(function() {
-  system.stdout.writeLine('Downloading transactions')
-  config.accounts.forEach(downloadTransactions, this)
+  system.stdout.writeLine('Downloading transactions...')
+  config.accounts.forEach(function(account) {
+    downloadAccountTransactions(account)
+  })
 })
 
 // kick off the whole script
