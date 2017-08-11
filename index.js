@@ -4,6 +4,9 @@ var fs = require('fs')
 var casper = require('casper')
 var config = require('./config')
 
+// Remember, PhantomJS is not the same as NodeJS
+// and we don't have access to those APIs
+
 system.stdout.writeLine('Initializing...')
 casper = casper.create({
   verbose: false,
@@ -44,7 +47,7 @@ function downloadAccountTransactions(account) {
 }
 
 // First prompt for password
-system.stdout.writeLine('Enter TD password: ')
+system.stdout.writeLine('Enter TD Canada Trust password: ')
 var password = system.stdin.readLine()
 
 // Clear the terminal with lots of new lines
@@ -91,9 +94,17 @@ casper.waitForSelector(
     system.stdout.writeLine('Logged in')
   },
   function() {
-    system.stdout.writeLine('timeout :(')
-    fs.write('timeout.html', this.getHTML(), 'w')
-    this.capture('timeout.png')
+    var url = casper.getCurrentUrl()
+    if (url.indexOf('https://easyweb.td.com/waw/idp/login.htm') >= 0) {
+      system.stdout.writeLine('Login failed. Please try again.')
+    } else {
+      system.stdout.writeLine(
+        'timeout due to unknown error. See timeout.html' +
+          ' and timeout.png for more details.'
+      )
+      fs.write('timeout.html', this.getHTML(), 'w')
+      this.capture('timeout.png')
+    }
   }
 )
 
@@ -103,15 +114,13 @@ casper.waitForSelector(
 // attempting to download files
 casper.withFrame('tddetails', function() {
   system.stdout.writeLine('Waiting for data to load...')
-  this.click('div.td-target-creditcards tr:nth-child(4)  a')
+  this.click('.td-target-creditcards tr:nth-child(4)  a')
 })
 
 // Actually download the transaction files
 casper.then(function() {
   system.stdout.writeLine('Downloading transactions...')
-  config.accounts.forEach(function(account) {
-    downloadAccountTransactions(account)
-  })
+  config.accounts.forEach(downloadAccountTransactions)
 })
 
 // kick off the whole script
